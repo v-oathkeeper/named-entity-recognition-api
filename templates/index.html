@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Named Entity Recognition</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+
+        .tag {
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            margin-left: 4px;
+            color: #1f2937;
+        }
+    </style>
+</head>
+
+<body class="bg-gray-100 text-gray-800">
+
+    <div class="container mx-auto max-w-3xl p-4 sm:p-6 md:p-8">
+        <header class="text-center mb-8">
+            <h1 class="text-3xl sm:text-4xl font-bold text-gray-900">Named Entity Recognition</h1>
+            <p class="mt-2 text-md text-gray-600">Enter a sentence below to identify persons, organizations, locations,
+                and more.</p>
+        </header>
+
+        <main class="bg-white p-6 rounded-lg shadow-md">
+            <div class="space-y-4">
+                <textarea id="sentence-input"
+                    class="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200"
+                    rows="4" placeholder="For example: President Biden will visit London next week..."></textarea>
+                <button id="analyze-btn"
+                    class="w-full bg-blue-600 text-white font-semibold py-3 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-200 flex items-center justify-center">
+                    <svg id="analyze-icon" class="h-5 w-5 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none"
+                        viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                    </svg>
+                    <svg id="loading-spinner" class="animate-spin h-5 w-5 mr-2 hidden"
+                        xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4">
+                        </circle>
+                        <path class="opacity-75" fill="currentColor"
+                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
+                        </path>
+                    </svg>
+                    <span>Analyze Text</span>
+                </button>
+            </div>
+
+            <div class="mt-8">
+                <h2 class="text-xl font-semibold border-b pb-2 mb-4">Results</h2>
+                <div id="results" class="p-4 bg-gray-50 rounded-md min-h-[100px] text-lg leading-relaxed">
+                    <!-- Results will be displayed here -->
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        const analyzeBtn = document.getElementById('analyze-btn');
+        const sentenceInput = document.getElementById('sentence-input');
+        const resultsDiv = document.getElementById('results');
+        const analyzeIcon = document.getElementById('analyze-icon');
+        const loadingSpinner = document.getElementById('loading-spinner');
+
+        analyzeBtn.addEventListener('click', async () => {
+            const sentence = sentenceInput.value;
+            if (!sentence.trim()) {
+                resultsDiv.textContent = 'Please enter a sentence.';
+                return;
+            }
+
+            // Show loading state
+            analyzeBtn.disabled = true;
+            analyzeIcon.classList.add('hidden');
+            loadingSpinner.classList.remove('hidden');
+            resultsDiv.innerHTML = '<p class="text-gray-500">Analyzing...</p>';
+
+            try {
+                const response = await fetch('/predict', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ sentence: sentence }),
+                });
+
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+
+                const data = await response.json();
+                displayResults(data.results);
+
+            } catch (error) {
+                console.error('Error:', error);
+                resultsDiv.textContent = 'An error occurred. Please try again.';
+            } finally {
+                // Hide loading state
+                analyzeBtn.disabled = false;
+                analyzeIcon.classList.remove('hidden');
+                loadingSpinner.classList.add('hidden');
+            }
+        });
+
+        // --- CORRECTED `getTagColor` FUNCTION ---
+        // This now maps the full, descriptive tag names to colors.
+        function getTagColor(tag) {
+            if (tag.includes('Geographical')) return '#81d4fa'; // light blue
+            if (tag.includes('Geopolitical')) return '#c5e1a5'; // light green
+            if (tag.includes('Person')) return '#ffcc80'; // orange
+            if (tag.includes('Organization')) return '#ef9a9a'; // red
+            if (tag.includes('Time')) return '#9fa8da'; // indigo
+            if (tag.includes('Artifact')) return '#ce93d8'; // purple
+            if (tag.includes('Event')) return '#90caf9'; // blue
+            if (tag.includes('Natural')) return '#a5d6a7'; // green
+            return '#e0e0e0'; // default grey for 'Other'
+        }
+
+        // --- CORRECTED `displayResults` FUNCTION ---
+        // This function now handles the new API response and groups consecutive entities.
+        function displayResults(results) {
+            resultsDiv.innerHTML = ''; // Clear previous results
+
+            let currentEntity = null;
+            let entityBuffer = [];
+
+            function flushBuffer() {
+                if (entityBuffer.length > 0) {
+                    const span = document.createElement('span');
+                    span.className = 'entity-container';
+                    const words = entityBuffer.join(' ');
+                    const tagColor = getTagColor(currentEntity);
+
+                    span.innerHTML = `${words}<span class="tag" style="background-color: ${tagColor}">${currentEntity}</span>&nbsp;`;
+                    resultsDiv.appendChild(span);
+
+                    entityBuffer = [];
+                    currentEntity = null;
+                }
+            }
+
+            results.forEach(item => {
+                const { word, tag } = item;
+
+                if (tag !== 'Other') {
+                    if (tag === currentEntity) {
+                        // Continue the current entity
+                        entityBuffer.push(word);
+                    } else {
+                        // New entity detected, flush the old one first
+                        flushBuffer();
+                        currentEntity = tag;
+                        entityBuffer.push(word);
+                    }
+                } else {
+                    // Not an entity, flush any existing entity buffer
+                    flushBuffer();
+                    resultsDiv.innerHTML += `${word} `;
+                }
+            });
+
+            // Flush any remaining buffer at the end of the sentence
+            flushBuffer();
+        }
+
+    </script>
+</body>
+
+</html>
