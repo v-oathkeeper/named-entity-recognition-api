@@ -2,8 +2,8 @@
 
 A web application that identifies and classifies named entities (like **persons**, **locations**, and **organizations**) in user-provided text. This project uses a **Bidirectional LSTM model (Bi-LSTM)** built with **TensorFlow/Keras** and is served via a **Flask API**.
 
-![Demo GIF of the application in use]
-> *(Optional: It's highly recommended to record a short GIF of your app working and add it here!)*
+![Demo GIF of the application in use](demo.gif)
+
 
 ---
 
