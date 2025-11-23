@@ -6,3 +6,4 @@ matplotlib
 tqdm
 pydot
 graphviz
+gunicorn
